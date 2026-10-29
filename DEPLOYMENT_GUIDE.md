@@ -20,15 +20,19 @@ This guide provides step-by-step instructions to deploy the **University College
 1. Log in to [Supabase](https://supabase.com).
 2. Click **New Project**, choose a region close to your users (e.g., `Southeast Asia (Singapore)` or `South Asia (Mumbai)`), and set a secure database password.
 
-### Step 1.2: Run SQL Schema Migration
+### Step 1.2: Run SQL Schema Migrations
 1. In the Supabase Dashboard, open **SQL Editor** from the left navigation.
-2. Open [`supabase/migrations/001_initial_schema.sql`](file:///c:/Users/user/Desktop/ucr_portal/supabase/migrations/001_initial_schema.sql) in this repository.
-3. Paste the entire SQL script into the editor and click **Run**.
-4. This creates:
+2. Open and run [`supabase/migrations/001_initial_schema.sql`](file:///c:/Users/user/Desktop/ucr_portal/supabase/migrations/001_initial_schema.sql). This creates:
    - Tables: `admins`, `students`, `learning_stages`, `modules`, `gallery`, `events`, `lecturers`.
-   - Appropriate indexes and constraints.
-   - Row Level Security (RLS) policies allowing public read of academic data.
-   - Storage bucket: `portal-media` (public read, 10MB file limit).
+   - Appropriate indexes, constraints, and Row Level Security (RLS) policies.
+   - Storage bucket: `portal-media` (public read, 15MB file limit, images + PDF).
+3. Open and run [`supabase/migrations/002_timetables_schema.sql`](file:///c:/Users/user/Desktop/ucr_portal/supabase/migrations/002_timetables_schema.sql). This creates:
+   - Tables: `timetables`, `timetable_overrides`.
+   - Indexes for fast querying by category, course, and date.
+   - Row Level Security (RLS) policies allowing public read of published timetables and active overrides.
+4. Open and run [`supabase/migrations/003_settings_and_storage_fix.sql`](file:///c:/Users/user/Desktop/ucr_portal/supabase/migrations/003_settings_and_storage_fix.sql). This creates:
+   - Table: `site_settings` for dynamic section headers and configurations.
+   - Updates `portal-media` bucket rules for PDF uploads.
 
 ### Step 1.3: Retrieve API Keys
 1. Go to **Project Settings** -> **API**.

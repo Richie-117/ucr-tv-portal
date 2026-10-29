@@ -211,6 +211,19 @@ export function lecturerFromRow(row: any): Lecturer {
   };
 }
 
+export function lecturerToRow(l: Partial<Lecturer>): Record<string, any> {
+  const row: Record<string, any> = {};
+  if (l.id !== undefined) row.id = l.id;
+  if (l.name !== undefined) row.name = l.name;
+  if (l.designation !== undefined) row.designation = l.designation;
+  if (l.roleType !== undefined) row.role_type = l.roleType;
+  if (l.specialization !== undefined) row.specialization = l.specialization;
+  if (l.profileImageUrl !== undefined) row.profile_image_url = l.profileImageUrl;
+  if (l.sortOrder !== undefined) row.sort_order = l.sortOrder;
+  return row;
+}
+
+
 export function adminFromRow(row: any): AdminUser {
   return {
     id: row.id,
@@ -221,3 +234,76 @@ export function adminFromRow(row: any): AdminUser {
     role: row.role,
   };
 }
+
+export function timetableFromRow(row: any): any {
+  return {
+    id: row.id,
+    category: row.category,
+    course: row.course,
+    title: row.title,
+    subtitle: row.subtitle,
+    batchLabel: row.batch_label,
+    pdfUrl: row.pdf_url || undefined,
+    isPublished: Boolean(row.is_published),
+    slots: Array.isArray(row.slots) ? row.slots : [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    updatedBy: row.updated_by || undefined,
+  };
+}
+
+export function timetableToRow(t: any): Record<string, any> {
+  const row: Record<string, any> = {};
+  if (t.id !== undefined) row.id = t.id;
+  if (t.category !== undefined) row.category = t.category;
+  if (t.course !== undefined) row.course = t.course;
+  if (t.title !== undefined) row.title = t.title;
+  if (t.subtitle !== undefined) row.subtitle = t.subtitle;
+  if (t.batchLabel !== undefined) row.batch_label = t.batchLabel;
+  if (t.pdfUrl !== undefined) row.pdf_url = t.pdfUrl;
+  if (t.isPublished !== undefined) row.is_published = t.isPublished;
+  if (t.slots !== undefined) row.slots = t.slots;
+  if (t.createdAt !== undefined) row.created_at = t.createdAt;
+  if (t.updatedAt !== undefined) row.updated_at = t.updatedAt;
+  if (t.updatedBy !== undefined) row.updated_by = t.updatedBy;
+  return row;
+}
+
+export function timetableOverrideFromRow(row: any): any {
+  return {
+    id: row.id,
+    timetableId: row.timetable_id,
+    timetableSlotId: row.timetable_slot_id || undefined,
+    course: row.course,
+    exceptionDate: row.exception_date,
+    status: row.status,
+    reason: row.reason || undefined,
+    rescheduledDate: row.rescheduled_date || undefined,
+    rescheduledStartTime: row.rescheduled_start_time || undefined,
+    rescheduledEndTime: row.rescheduled_end_time || undefined,
+    isActive: Boolean(row.is_active),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    updatedBy: row.updated_by || undefined,
+  };
+}
+
+export function timetableOverrideToRow(o: any): Record<string, any> {
+  const row: Record<string, any> = {};
+  if (o.id !== undefined) row.id = o.id;
+  if (o.timetableId !== undefined) row.timetable_id = o.timetableId;
+  if (o.timetableSlotId !== undefined) row.timetable_slot_id = o.timetableSlotId;
+  if (o.course !== undefined) row.course = o.course;
+  if (o.exceptionDate !== undefined) row.exception_date = o.exceptionDate;
+  if (o.status !== undefined) row.status = o.status;
+  if (o.reason !== undefined) row.reason = o.reason;
+  if (o.rescheduledDate !== undefined) row.rescheduled_date = o.rescheduledDate;
+  if (o.rescheduledStartTime !== undefined) row.rescheduled_start_time = o.rescheduledStartTime;
+  if (o.rescheduledEndTime !== undefined) row.rescheduled_end_time = o.rescheduledEndTime;
+  if (o.isActive !== undefined) row.is_active = o.isActive;
+  if (o.createdAt !== undefined) row.created_at = o.createdAt;
+  if (o.updatedAt !== undefined) row.updated_at = o.updatedAt;
+  if (o.updatedBy !== undefined) row.updated_by = o.updatedBy;
+  return row;
+}
+

@@ -35,3 +35,4 @@ data/*.tmp.*
 .DS_Store
 *.pem
 Thumbs.db
+*.tsbuildinfo

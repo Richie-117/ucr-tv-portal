@@ -1,11 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Lecturer } from '@/lib/types';
+import { Lecturer, LecturerSectionSettings } from '@/lib/types';
 import { Award, Sparkles, Tv, Video, GraduationCap } from 'lucide-react';
 
 interface LecturersSectionProps {
   lecturers?: Lecturer[];
+  settings?: LecturerSectionSettings;
 }
 
 const DEFAULT_LECTURERS: Lecturer[] = [
@@ -47,7 +48,10 @@ const DEFAULT_LECTURERS: Lecturer[] = [
   },
 ];
 
-export default function LecturersSection({ lecturers = DEFAULT_LECTURERS }: LecturersSectionProps) {
+export default function LecturersSection({
+  lecturers = DEFAULT_LECTURERS,
+  settings,
+}: LecturersSectionProps) {
   const getSpecializationIcon = (roleType: string) => {
     switch (roleType) {
       case 'head':
@@ -102,15 +106,16 @@ export default function LecturersSection({ lecturers = DEFAULT_LECTURERS }: Lect
         <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-slate-300 uppercase tracking-wider">
             <GraduationCap className="w-4 h-4 text-ucr-orange" />
-            <span>Academic Faculty</span>
+            <span>{settings?.badgeText || 'Academic Faculty'}</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Academic Lecturers
+            {settings?.title || 'Academic Lecturers'}
           </h2>
 
           <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
-            Distinguished television industry practitioners, directors, and academic scholars of the <strong>Division of Television Studies</strong> at University College of Rathmalana.
+            {settings?.description ||
+              'Distinguished television industry practitioners, directors, and academic scholars of the Division of Television Studies at University College of Rathmalana.'}
           </p>
         </div>
 

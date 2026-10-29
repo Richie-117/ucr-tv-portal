@@ -13,6 +13,8 @@ import {
   AdminUser,
 } from '@/lib/types';
 import AdminStudentsTab from '@/components/admin/AdminStudentsTab';
+import AdminTimetablesTab from '@/components/admin/AdminTimetablesTab';
+import AdminLecturersTab from '@/components/admin/AdminLecturersTab';
 import AdminModulesTab from '@/components/admin/AdminModulesTab';
 import AdminStagesTab from '@/components/admin/AdminStagesTab';
 import AdminGalleryTab from '@/components/admin/AdminGalleryTab';
@@ -23,6 +25,7 @@ import {
   Users,
   BookOpen,
   Calendar,
+  Clock,
   Image as ImageIcon,
   Layers,
   Settings,
@@ -33,6 +36,7 @@ import {
   Film,
   Camera,
   Home,
+  GraduationCap,
 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
@@ -43,7 +47,7 @@ export default function AdminDashboardPage() {
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<
-    'students' | 'modules' | 'stages' | 'gallery' | 'events' | 'settings'
+    'students' | 'timetables' | 'lecturers' | 'modules' | 'stages' | 'gallery' | 'events' | 'settings'
   >('students');
 
   // Live Database Records
@@ -61,7 +65,7 @@ export default function AdminDashboardPage() {
       const meRes = await fetch('/api/auth/me');
       const meData = await meRes.json();
       if (!meData.authenticated) {
-        router.push('/admin/login');
+        window.location.href = '/admin/login';
         return;
       }
       setCurrentUser(meData.user);
@@ -238,6 +242,30 @@ export default function AdminDashboardPage() {
         </button>
 
         <button
+          onClick={() => setActiveTab('timetables')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
+            activeTab === 'timetables'
+              ? 'bg-ucr-orange text-white shadow-orange-glow'
+              : 'text-text-secondary hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <Clock className="w-4 h-4" />
+          <span>Timetables &amp; Status</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('lecturers')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
+            activeTab === 'lecturers'
+              ? 'bg-ucr-orange text-white shadow-orange-glow'
+              : 'text-text-secondary hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <GraduationCap className="w-4 h-4" />
+          <span>Lecturers</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('modules')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
             activeTab === 'modules'
@@ -302,6 +330,12 @@ export default function AdminDashboardPage() {
       <div className="pt-2">
         {activeTab === 'students' && (
           <AdminStudentsTab students={students} onRefresh={loadAllData} />
+        )}
+        {activeTab === 'timetables' && (
+          <AdminTimetablesTab onRefresh={loadAllData} />
+        )}
+        {activeTab === 'lecturers' && (
+          <AdminLecturersTab onRefresh={loadAllData} />
         )}
         {activeTab === 'modules' && (
           <AdminModulesTab modules={modules} stages={stages} onRefresh={loadAllData} />

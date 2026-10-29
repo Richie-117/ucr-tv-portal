@@ -10,8 +10,13 @@ import {
   AdminUser,
   DashboardStats,
   Lecturer,
+  LecturerSectionSettings,
+  Timetable,
+  TimetableOverride,
+  TimetableCategory,
+  CourseType,
 } from './types';
-import { getInitialDatabase } from './seed-data';
+import { getInitialDatabase, INITIAL_TIMETABLES, INITIAL_LECTURERS } from './seed-data';
 import {
   isSupabaseConfigured,
   getSupabaseAdmin,
@@ -26,7 +31,12 @@ import {
   eventFromRow,
   eventToRow,
   lecturerFromRow,
+  lecturerToRow,
   adminFromRow,
+  timetableFromRow,
+  timetableToRow,
+  timetableOverrideFromRow,
+  timetableOverrideToRow,
 } from './supabase';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -54,6 +64,8 @@ export async function getDatabase(): Promise<DatabaseSchema> {
         eventsRes,
         adminsRes,
         lecturersRes,
+        timetablesRes,
+        overridesRes,
       ] = await Promise.all([
         supabase.from('students').select('*'),
         supabase.from('modules').select('*').order('sort_order', { ascending: true }),
@@ -62,6 +74,8 @@ export async function getDatabase(): Promise<DatabaseSchema> {
         supabase.from('events').select('*'),
         supabase.from('admins').select('*'),
         supabase.from('lecturers').select('*').order('sort_order', { ascending: true }),
+        supabase.from('timetables').select('*'),
+        supabase.from('timetable_overrides').select('*'),
       ]);
 
       if (
@@ -79,6 +93,8 @@ export async function getDatabase(): Promise<DatabaseSchema> {
           events: (eventsRes.data || []).map(eventFromRow),
           admins: (adminsRes.data || []).map(adminFromRow),
           lecturers: (lecturersRes.data || []).map(lecturerFromRow),
+          timetables: (timetablesRes.data || []).map(timetableFromRow),
+          timetableOverrides: (overridesRes.data || []).map(timetableOverrideFromRow),
         };
       }
       console.warn('Supabase fetch encountered errors, falling back to local JSON cache');
@@ -104,6 +120,34 @@ export async function getDatabase(): Promise<DatabaseSchema> {
   try {
     const raw = fs.readFileSync(DB_FILE, 'utf-8');
     const parsed = JSON.parse(raw) as DatabaseSchema;
+    let needsSave = false;
+
+    if (!parsed.timetables || parsed.timetables.length === 0) {
+      parsed.timetables = INITIAL_TIMETABLES;
+      needsSave = true;
+    }
+    if (!parsed.timetableOverrides) {
+      parsed.timetableOverrides = [];
+      needsSave = true;
+    }
+    if (!parsed.lecturers || parsed.lecturers.length === 0) {
+      parsed.lecturers = INITIAL_LECTURERS;
+      needsSave = true;
+    }
+    if (!parsed.lecturerSectionSettings) {
+      parsed.lecturerSectionSettings = {
+        badgeText: 'Academic Faculty',
+        title: 'Academic Lecturers',
+        description:
+          'Distinguished television industry practitioners, directors, and academic scholars of the Division of Television Studies at University College of Rathmalana.',
+      };
+      needsSave = true;
+    }
+
+    if (needsSave) {
+      await saveDatabase(parsed);
+    }
+
     cache = parsed;
     return parsed;
   } catch (error) {
@@ -114,6 +158,7 @@ export async function getDatabase(): Promise<DatabaseSchema> {
     return initial;
   }
 }
+
 
 export async function saveDatabase(data: DatabaseSchema): Promise<void> {
   ensureDataDir();
@@ -149,6 +194,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const ongoingModules = db.modules.filter((m) => m.published && m.status === 'ongoing').length;
   const upcomingEvents = db.events.filter((e) => e.published && e.eventDate >= today).length;
 
+  const totalTimetables = db.timetables ? db.timetables.length : 2;
+  const totalLecturers = db.lecturers ? db.lecturers.length : 4;
+
   return {
     totalStudents: db.students.length,
     tpoptStudents,
@@ -157,6 +205,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     upcomingEvents,
     totalModules: db.modules.length,
     totalEvents: db.events.length,
+    totalTimetables,
+    totalLecturers,
   };
 }
 
@@ -1006,6 +1056,13 @@ export async function getAdminByUsernameOrEmail(identifier: string): Promise<Adm
 
 // ==================== LECTURERS ====================
 
+export const DEFAULT_LECTURER_SECTION_SETTINGS: LecturerSectionSettings = {
+  badgeText: 'Academic Faculty',
+  title: 'Academic Lecturers',
+  description:
+    'Distinguished television industry practitioners, directors, and academic scholars of the Division of Television Studies at University College of Rathmalana.',
+};
+
 export async function getLecturers(): Promise<Lecturer[]> {
   const supabase = getSupabaseAdmin();
   if (supabase) {
@@ -1014,7 +1071,7 @@ export async function getLecturers(): Promise<Lecturer[]> {
         .from('lecturers')
         .select('*')
         .order('sort_order', { ascending: true });
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         return data.map(lecturerFromRow);
       }
     } catch (e) {
@@ -1023,6 +1080,422 @@ export async function getLecturers(): Promise<Lecturer[]> {
   }
 
   const db = await getDatabase();
-  const list = db.lecturers || [];
+  const list = db.lecturers && db.lecturers.length > 0 ? db.lecturers : INITIAL_LECTURERS;
   return [...list].sort((a, b) => a.sortOrder - b.sortOrder);
 }
+
+export async function getLecturerById(id: string): Promise<Lecturer | null> {
+  const supabase = getSupabaseAdmin();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('lecturers').select('*').eq('id', id).maybeSingle();
+      if (!error && data) {
+        return lecturerFromRow(data);
+      }
+    } catch (e) {
+      console.warn('Supabase getLecturerById error:', e);
+    }
+  }
+
+  const db = await getDatabase();
+  return (db.lecturers || []).find((l) => l.id === id) || null;
+}
+
+export async function createLecturer(
+  data: Omit<Lecturer, 'id'>
+): Promise<Lecturer> {
+  const supabase = getSupabaseAdmin();
+  const newId = `lec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+  const newLecturer: Lecturer = {
+    id: newId,
+    ...data,
+  };
+
+  if (supabase) {
+    try {
+      const row = lecturerToRow(newLecturer);
+      const { error } = await supabase.from('lecturers').insert(row);
+      if (error) console.error('Supabase createLecturer error:', error);
+    } catch (e) {
+      console.error('Supabase createLecturer error:', e);
+    }
+  }
+
+  const db = await getDatabase();
+  if (!db.lecturers) db.lecturers = [];
+  db.lecturers.push(newLecturer);
+  await saveDatabase(db);
+  return newLecturer;
+}
+
+export async function updateLecturer(
+  id: string,
+  updates: Partial<Lecturer>
+): Promise<Lecturer | null> {
+  const supabase = getSupabaseAdmin();
+
+  if (supabase) {
+    try {
+      const row = lecturerToRow(updates);
+      const { error } = await supabase.from('lecturers').update(row).eq('id', id);
+      if (error) console.error('Supabase updateLecturer error:', error);
+    } catch (e) {
+      console.error('Supabase updateLecturer error:', e);
+    }
+  }
+
+  const db = await getDatabase();
+  if (!db.lecturers) db.lecturers = [...INITIAL_LECTURERS];
+  const index = db.lecturers.findIndex((l) => l.id === id);
+  if (index === -1) return null;
+
+  const updated: Lecturer = {
+    ...db.lecturers[index],
+    ...updates,
+  };
+
+  db.lecturers[index] = updated;
+  await saveDatabase(db);
+  return updated;
+}
+
+export async function deleteLecturer(id: string): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('lecturers').delete().eq('id', id);
+      if (error) console.error('Supabase deleteLecturer error:', error);
+    } catch (e) {
+      console.error('Supabase deleteLecturer error:', e);
+    }
+  }
+
+  const db = await getDatabase();
+  if (!db.lecturers) return false;
+  const initialLen = db.lecturers.length;
+  db.lecturers = db.lecturers.filter((l) => l.id !== id);
+  if (db.lecturers.length === initialLen) return false;
+  await saveDatabase(db);
+  return true;
+}
+
+export async function getLecturersSectionSettings(): Promise<LecturerSectionSettings> {
+  const supabase = getSupabaseAdmin();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'lecturer_section_settings')
+        .maybeSingle();
+      if (!error && data?.value) {
+        return data.value as LecturerSectionSettings;
+      }
+    } catch (e) {
+      console.warn('Supabase getLecturersSectionSettings error:', e);
+    }
+  }
+
+  const db = await getDatabase();
+  return db.lecturerSectionSettings || DEFAULT_LECTURER_SECTION_SETTINGS;
+}
+
+export async function updateLecturersSectionSettings(
+  settings: Partial<LecturerSectionSettings>
+): Promise<LecturerSectionSettings> {
+  const db = await getDatabase();
+  const current = db.lecturerSectionSettings || DEFAULT_LECTURER_SECTION_SETTINGS;
+  const updated: LecturerSectionSettings = {
+    badgeText: settings.badgeText?.trim() || current.badgeText,
+    title: settings.title?.trim() || current.title,
+    description: settings.description?.trim() || current.description,
+  };
+
+  const supabase = getSupabaseAdmin();
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('site_settings').upsert({
+        key: 'lecturer_section_settings',
+        value: updated,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+      if (error) console.error('Supabase updateLecturersSectionSettings error:', error);
+    } catch (e) {
+      console.error('Supabase updateLecturersSectionSettings error:', e);
+    }
+  }
+
+  db.lecturerSectionSettings = updated;
+  await saveDatabase(db);
+  return updated;
+}
+
+
+
+// ==================== TIMETABLES ====================
+
+export async function getTimetables(options?: {
+  category?: TimetableCategory;
+  course?: CourseType;
+  publishedOnly?: boolean;
+}): Promise<Timetable[]> {
+  const supabase = getSupabaseAdmin();
+  if (supabase) {
+    try {
+      let query = supabase.from('timetables').select('*');
+      if (options?.category) {
+        query = query.eq('category', options.category);
+      }
+      if (options?.course) {
+        query = query.eq('course', options.course);
+      }
+      if (options?.publishedOnly) {
+        query = query.eq('is_published', true);
+      }
+
+      const { data, error } = await query;
+      if (!error && data && data.length > 0) {
+        return data.map(timetableFromRow);
+      }
+    } catch (e) {
+      console.warn('Supabase getTimetables error, falling back to local file:', e);
+    }
+  }
+
+  const db = await getDatabase();
+  let result = [...(db.timetables || [])];
+
+  if (options?.category) {
+    result = result.filter((t) => t.category === options.category);
+  }
+  if (options?.course) {
+    result = result.filter((t) => t.course === options.course);
+  }
+  if (options?.publishedOnly) {
+    result = result.filter((t) => t.isPublished);
+  }
+
+  return result;
+}
+
+export async function getTimetableById(id: string): Promise<Timetable | null> {
+  const supabase = getSupabaseAdmin();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('timetables').select('*').eq('id', id).maybeSingle();
+      if (!error && data) {
+        return timetableFromRow(data);
+      }
+    } catch (e) {
+      console.warn('Supabase getTimetableById error, falling back:', e);
+    }
+  }
+
+  const db = await getDatabase();
+  return (db.timetables || []).find((t) => t.id === id) || null;
+}
+
+export async function getTimetableByCourse(
+  category: TimetableCategory,
+  course: CourseType
+): Promise<Timetable | null> {
+  const timetables = await getTimetables({ category, course });
+  return timetables[0] || null;
+}
+
+export async function updateTimetable(
+  id: string,
+  updates: Partial<Timetable> & { updatedBy?: string }
+): Promise<Timetable | null> {
+  const now = new Date().toISOString();
+  const supabase = getSupabaseAdmin();
+
+  if (supabase) {
+    try {
+      const rowUpdates = timetableToRow({ ...updates, updatedAt: now });
+      const { data, error } = await supabase
+        .from('timetables')
+        .update(rowUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase updateTimetable error:', error);
+      }
+    } catch (e) {
+      console.error('Supabase updateTimetable threw error:', e);
+    }
+  }
+
+  // Update local file cache as well
+  const db = await getDatabase();
+  if (!db.timetables) db.timetables = [];
+  const index = db.timetables.findIndex((t) => t.id === id);
+  if (index === -1) {
+    // If not existing, try to find in initial
+    const initialMatch = INITIAL_TIMETABLES.find((t) => t.id === id);
+    if (initialMatch) {
+      const created = {
+        ...initialMatch,
+        ...updates,
+        updatedAt: now,
+      };
+      db.timetables.push(created);
+      await saveDatabase(db);
+      return created;
+    }
+    return null;
+  }
+
+  const updated: Timetable = {
+    ...db.timetables[index],
+    ...updates,
+    updatedAt: now,
+  };
+
+  db.timetables[index] = updated;
+  await saveDatabase(db);
+  return updated;
+}
+
+// ==================== TIMETABLE OVERRIDES ====================
+
+export async function getTimetableOverrides(options?: {
+  timetableId?: string;
+  course?: CourseType;
+  date?: string;
+  activeOnly?: boolean;
+}): Promise<TimetableOverride[]> {
+  const supabase = getSupabaseAdmin();
+  if (supabase) {
+    try {
+      let query = supabase.from('timetable_overrides').select('*');
+      if (options?.timetableId) {
+        query = query.eq('timetable_id', options.timetableId);
+      }
+      if (options?.course) {
+        query = query.eq('course', options.course);
+      }
+      if (options?.date) {
+        query = query.eq('exception_date', options.date);
+      }
+      if (options?.activeOnly) {
+        query = query.eq('is_active', true);
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        return data.map(timetableOverrideFromRow);
+      }
+    } catch (e) {
+      console.warn('Supabase getTimetableOverrides error, falling back:', e);
+    }
+  }
+
+  const db = await getDatabase();
+  let result = [...(db.timetableOverrides || [])];
+
+  if (options?.timetableId) {
+    result = result.filter((o) => o.timetableId === options.timetableId);
+  }
+  if (options?.course) {
+    result = result.filter((o) => !o.course || o.course === options.course);
+  }
+  if (options?.date) {
+    result = result.filter((o) => o.exceptionDate === options.date);
+  }
+  if (options?.activeOnly) {
+    result = result.filter((o) => o.isActive);
+  }
+
+  return result;
+}
+
+export async function createTimetableOverride(
+  data: Omit<TimetableOverride, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<TimetableOverride> {
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+  const newId = `override-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+  const newOverride: TimetableOverride = {
+    id: newId,
+    ...data,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  if (supabase) {
+    try {
+      const row = timetableOverrideToRow(newOverride);
+      const { error } = await supabase.from('timetable_overrides').insert(row);
+      if (error) console.error('Supabase createTimetableOverride error:', error);
+    } catch (e) {
+      console.error('Supabase createTimetableOverride error:', e);
+    }
+  }
+
+  const db = await getDatabase();
+  if (!db.timetableOverrides) db.timetableOverrides = [];
+  db.timetableOverrides.push(newOverride);
+  await saveDatabase(db);
+  return newOverride;
+}
+
+export async function updateTimetableOverride(
+  id: string,
+  updates: Partial<TimetableOverride>
+): Promise<TimetableOverride | null> {
+  const now = new Date().toISOString();
+  const supabase = getSupabaseAdmin();
+
+  if (supabase) {
+    try {
+      const rowUpdates = timetableOverrideToRow({ ...updates, updatedAt: now });
+      const { error } = await supabase
+        .from('timetable_overrides')
+        .update(rowUpdates)
+        .eq('id', id);
+      if (error) console.error('Supabase updateTimetableOverride error:', error);
+    } catch (e) {
+      console.error('Supabase updateTimetableOverride error:', e);
+    }
+  }
+
+  const db = await getDatabase();
+  if (!db.timetableOverrides) db.timetableOverrides = [];
+  const index = db.timetableOverrides.findIndex((o) => o.id === id);
+  if (index === -1) return null;
+
+  const updated: TimetableOverride = {
+    ...db.timetableOverrides[index],
+    ...updates,
+    updatedAt: now,
+  };
+
+  db.timetableOverrides[index] = updated;
+  await saveDatabase(db);
+  return updated;
+}
+
+export async function deleteTimetableOverride(id: string): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('timetable_overrides').delete().eq('id', id);
+      if (error) console.error('Supabase deleteTimetableOverride error:', error);
+    } catch (e) {
+      console.error('Supabase deleteTimetableOverride error:', e);
+    }
+  }
+
+  const db = await getDatabase();
+  if (!db.timetableOverrides) return false;
+  const initialLen = db.timetableOverrides.length;
+  db.timetableOverrides = db.timetableOverrides.filter((o) => o.id !== id);
+  if (db.timetableOverrides.length === initialLen) return false;
+  await saveDatabase(db);
+  return true;
+}
+

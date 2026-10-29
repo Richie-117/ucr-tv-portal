@@ -140,10 +140,12 @@ VALUES (
     'portal-media',
     'portal-media',
     true,
-    10485760, -- 10MB
-    ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    15728640, -- 15MB
+    ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']
 )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+    allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'],
+    file_size_limit = 15728640;
 
 -- Public Storage Read Access
 DROP POLICY IF EXISTS "Public can view portal media" ON storage.objects;

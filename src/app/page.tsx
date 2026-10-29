@@ -9,11 +9,14 @@ import {
   getEvents,
   getDashboardStats,
   getLecturers,
+  getLecturersSectionSettings,
 } from '@/lib/db';
 import Badge from '@/components/Badge';
 import HomeGalleryLightbox from '@/components/HomeGalleryLightbox';
 import HomeContactRepsButton from '@/components/HomeContactRepsButton';
 import LecturersSection from '@/components/LecturersSection';
+import LiveLectureStatus from '@/components/LiveLectureStatus';
+import { getLiveLectureStatus } from '@/lib/timetableService';
 import {
   ArrowRight,
   Tv,
@@ -34,13 +37,15 @@ import {
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const [stats, ongoingModules, stages, galleryItems, upcomingEvents, lecturers] = await Promise.all([
+  const [stats, ongoingModules, stages, galleryItems, upcomingEvents, lecturers, lecturerSettings, liveLectureData] = await Promise.all([
     getDashboardStats(),
     getModules({ status: 'ongoing', publishedOnly: true }),
     getStages(),
     getGallery({ homeOnly: true }),
     getEvents({ type: 'upcoming', publishedOnly: true }),
     getLecturers(),
+    getLecturersSectionSettings(),
+    getLiveLectureStatus(),
   ]);
 
   return (
@@ -134,6 +139,11 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ========================================================
+          LIVE LECTURE STATUS (Calculated from Foundation Timetables)
+          ======================================================== */}
+      <LiveLectureStatus initialData={liveLectureData} />
 
       {/* ========================================================
           2. ABOUT THE DIVISION
@@ -342,7 +352,7 @@ export default async function HomePage() {
       {/* ========================================================
           ACADEMIC FACULTY / LECTURERS SECTION
           ======================================================== */}
-      <LecturersSection lecturers={lecturers} />
+      <LecturersSection lecturers={lecturers} settings={lecturerSettings} />
 
       {/* ========================================================
           4. LEARNING JOURNEY (Horizontal on wide, vertical on mobile)

@@ -31,6 +31,7 @@ export async function GET() {
     details.totalStudents = stats.totalStudents;
     details.totalModules = stats.totalModules;
     details.totalEvents = stats.totalEvents;
+    details.totalTimetables = stats.totalTimetables || 2;
 
     const responseTimeMs = Date.now() - startTime;
 

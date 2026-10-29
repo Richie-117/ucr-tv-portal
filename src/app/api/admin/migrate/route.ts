@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 7. Lecturers
-    if (localDb.lecturers.length > 0) {
+    if (localDb.lecturers && localDb.lecturers.length > 0) {
       const rows = localDb.lecturers.map((l) => ({
         id: l.id,
         name: l.name,
@@ -145,6 +145,58 @@ export async function POST(req: NextRequest) {
       }));
       await supabase.from('lecturers').upsert(rows, { onConflict: 'id' });
       stats.lecturers = rows.length;
+    }
+
+    // 8. Timetables
+    if (localDb.timetables && localDb.timetables.length > 0) {
+      const timetableRows = localDb.timetables.map((t) => ({
+        id: t.id,
+        category: t.category,
+        course: t.course,
+        title: t.title,
+        subtitle: t.subtitle,
+        batch_label: t.batchLabel,
+        pdf_url: t.pdfUrl || null,
+        is_published: t.isPublished !== undefined ? t.isPublished : true,
+        slots: t.slots || [],
+        created_at: t.createdAt || new Date().toISOString(),
+        updated_at: t.updatedAt || new Date().toISOString(),
+        updated_by: t.updatedBy || null,
+      }));
+      await supabase.from('timetables').upsert(timetableRows, { onConflict: 'id' });
+      stats.timetables = timetableRows.length;
+    }
+
+    // 9. Timetable Overrides
+    if (localDb.timetableOverrides && localDb.timetableOverrides.length > 0) {
+      const overrideRows = localDb.timetableOverrides.map((o) => ({
+        id: o.id,
+        timetable_id: o.timetableId,
+        timetable_slot_id: o.timetableSlotId || null,
+        course: o.course || null,
+        exception_date: o.exceptionDate,
+        status: o.status,
+        reason: o.reason || null,
+        rescheduled_date: o.rescheduledDate || null,
+        rescheduled_start_time: o.rescheduledStartTime || null,
+        rescheduled_end_time: o.rescheduledEndTime || null,
+        is_active: o.isActive !== undefined ? o.isActive : true,
+        created_at: o.createdAt || new Date().toISOString(),
+        updated_at: o.updatedAt || new Date().toISOString(),
+        updated_by: o.updatedBy || null,
+      }));
+      await supabase.from('timetable_overrides').upsert(overrideRows, { onConflict: 'id' });
+      stats.timetableOverrides = overrideRows.length;
+    }
+
+    // 10. Site Settings
+    if (localDb.lecturerSectionSettings) {
+      await supabase.from('site_settings').upsert({
+        key: 'lecturer_section_settings',
+        value: localDb.lecturerSectionSettings,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+      stats.siteSettings = 1;
     }
 
     return NextResponse.json({

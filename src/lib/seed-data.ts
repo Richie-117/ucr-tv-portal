@@ -398,10 +398,206 @@ export const INITIAL_LECTURERS: Lecturer[] = [
   },
 ];
 
+// ============================================================================
+// TIMETABLE SEED DATA (Extracted precisely from TPOPT.pdf and TPRPT.pdf)
+// ============================================================================
+
+export const TIME_BANDS = [
+  { start: '08:30', end: '09:30', label: '8:30 a.m. – 9:30 a.m.', isBreak: false, isLunch: false },
+  { start: '09:30', end: '10:30', label: '9:30 a.m. – 10:30 a.m.', isBreak: false, isLunch: false },
+  { start: '10:30', end: '10:40', label: '10:30 a.m. – 10:40 a.m.', isBreak: true, isLunch: false },
+  { start: '10:40', end: '11:40', label: '10:40 a.m. – 11:40 a.m.', isBreak: false, isLunch: false },
+  { start: '11:40', end: '12:40', label: '11:40 a.m. – 12:40 p.m.', isBreak: false, isLunch: false },
+  { start: '12:40', end: '13:20', label: '12:40 p.m. – 1:20 p.m.', isBreak: false, isLunch: true },
+  { start: '13:20', end: '14:20', label: '1:20 p.m. – 2:20 p.m.', isBreak: false, isLunch: false },
+  { start: '14:20', end: '15:20', label: '2:20 p.m. – 3:20 p.m.', isBreak: false, isLunch: false },
+  { start: '15:20', end: '15:30', label: '3:20 p.m. – 3:30 p.m.', isBreak: true, isLunch: false },
+  { start: '15:30', end: '16:30', label: '3:30 p.m. – 4:30 p.m.', isBreak: false, isLunch: false },
+];
+
+export const DAYS_OF_WEEK: ('Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday')[] = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+
+export function generateSlotsForCourse(timetableId: string, course: 'TPOPT' | 'TPRPT') {
+  const slots: any[] = [];
+  let sortOrder = 0;
+
+  DAYS_OF_WEEK.forEach((day) => {
+    TIME_BANDS.forEach((tb, bandIdx) => {
+      sortOrder++;
+      const slotId = `${timetableId}-${day.toLowerCase()}-${tb.start.replace(':', '')}`;
+
+      // 1. Break and Lunch slots across all 7 days
+      if (tb.isBreak) {
+        slots.push({
+          id: slotId,
+          timetableId,
+          dayOfWeek: day,
+          startTime: tb.start,
+          endTime: tb.end,
+          timeLabel: tb.label,
+          subject: 'Break',
+          studentGroup: undefined,
+          slotType: 'break',
+          sortOrder,
+        });
+        return;
+      }
+
+      if (tb.isLunch) {
+        slots.push({
+          id: slotId,
+          timetableId,
+          dayOfWeek: day,
+          startTime: tb.start,
+          endTime: tb.end,
+          timeLabel: tb.label,
+          subject: 'Lunch Break',
+          studentGroup: undefined,
+          slotType: 'lunch',
+          sortOrder,
+        });
+        return;
+      }
+
+      // 2. Day-specific class assignments
+      let subject = '';
+      let studentGroup: string | undefined = undefined;
+      let slotType: 'class' | 'empty' = 'empty';
+
+      if (day === 'Monday') {
+        if (bandIdx === 3 || bandIdx === 4) {
+          // 10:40 - 12:40
+          subject = 'ENGLISH';
+          studentGroup = 'A/L & NVQ Students';
+          slotType = 'class';
+        } else if (bandIdx === 6 || bandIdx === 7 || bandIdx === 9) {
+          // 13:20 - 16:30
+          subject = 'DM10';
+          studentGroup = 'A/L Students';
+          slotType = 'class';
+        }
+      } else if (day === 'Tuesday') {
+        // Gaffer for all class slots
+        subject = 'Gaffer';
+        studentGroup = 'A/L Students';
+        slotType = 'class';
+      } else if (day === 'Wednesday') {
+        // DM7 for all class slots
+        subject = 'DM7';
+        studentGroup = 'A/L Students';
+        slotType = 'class';
+      } else if (day === 'Thursday') {
+        if (bandIdx === 0 || bandIdx === 1 || bandIdx === 3 || bandIdx === 4) {
+          // 8:30 - 12:40 (except 10:30 break)
+          subject = 'NVQ Physics I,II';
+          studentGroup = 'NVQ Students';
+          slotType = 'class';
+        } else if (course === 'TPOPT' && (bandIdx === 6 || bandIdx === 7 || bandIdx === 9)) {
+          // TPOPT has Computer Graphic Designer in Thursday afternoon; TPRPT is empty!
+          subject = 'Computer Graphic Designer';
+          studentGroup = 'A/L Students';
+          slotType = 'class';
+        }
+      } else if (day === 'Friday') {
+        if (course === 'TPRPT' && (bandIdx === 0 || bandIdx === 1)) {
+          // TPRPT has Computer Graphic Designer Friday morning; TPOPT is blank!
+          subject = 'Computer Graphic Designer';
+          studentGroup = 'A/L Students';
+          slotType = 'class';
+        } else if (bandIdx === 3 || bandIdx === 4) {
+          // 10:40 - 12:40 (Both courses)
+          subject = 'ICT';
+          studentGroup = 'A/L & NVQ Students';
+          slotType = 'class';
+        } else if (course === 'TPRPT' && (bandIdx === 6 || bandIdx === 7 || bandIdx === 9)) {
+          // TPRPT has Computer Graphic Designer Friday afternoon; TPOPT is blank!
+          subject = 'Computer Graphic Designer';
+          studentGroup = 'A/L Students';
+          slotType = 'class';
+        }
+      } else if (day === 'Saturday') {
+        if (bandIdx === 0 || bandIdx === 1 || bandIdx === 3 || bandIdx === 4) {
+          // 8:30 - 12:40 (Both courses)
+          subject = 'Maths';
+          studentGroup = 'NVQ Students';
+          slotType = 'class';
+        } else if (bandIdx === 6) {
+          // 13:20 - 14:20
+          // Note exact spelling from PDFs: TPOPT has plural "Drawings", TPRPT has singular "Drawing"
+          subject = course === 'TPOPT' ? 'Engineering Drawings' : 'Engineering Drawing';
+          studentGroup = 'NVQ Students';
+          slotType = 'class';
+        }
+      } else if (day === 'Sunday') {
+        if (bandIdx === 0 || bandIdx === 1 || bandIdx === 3 || bandIdx === 4) {
+          // 8:30 - 12:40 (Both courses)
+          subject = 'OSH';
+          studentGroup = 'A/L & NVQ Students';
+          slotType = 'class';
+        }
+      }
+
+      slots.push({
+        id: slotId,
+        timetableId,
+        dayOfWeek: day,
+        startTime: tb.start,
+        endTime: tb.end,
+        timeLabel: tb.label,
+        subject,
+        studentGroup,
+        slotType,
+        sortOrder,
+      });
+    });
+  });
+
+  return slots;
+}
+
+export const INITIAL_TIMETABLES = [
+  {
+    id: 'timetable-foundation-tpopt',
+    category: 'foundation' as const,
+    course: 'TPOPT' as const,
+    title: 'Academic Time Table – Foundation Programme – 11th Batch',
+    subtitle: 'Television & Digital Media Post Production Technology',
+    batchLabel: '11th Batch',
+    pdfUrl: '/timetables/TPOPT.pdf',
+    isPublished: true,
+    slots: generateSlotsForCourse('timetable-foundation-tpopt', 'TPOPT'),
+    createdAt: '2026-02-01T00:00:00.000Z',
+    updatedAt: '2026-02-01T00:00:00.000Z',
+  },
+  {
+    id: 'timetable-foundation-tprpt',
+    category: 'foundation' as const,
+    course: 'TPRPT' as const,
+    title: 'Academic Time Table – Foundation Programme – 11th Batch',
+    subtitle: 'Television & Digital Media Production Technology',
+    batchLabel: '11th Batch',
+    pdfUrl: '/timetables/TPRPT.pdf',
+    isPublished: true,
+    slots: generateSlotsForCourse('timetable-foundation-tprpt', 'TPRPT'),
+    createdAt: '2026-02-01T00:00:00.000Z',
+    updatedAt: '2026-02-01T00:00:00.000Z',
+  },
+];
+
 export function getInitialDatabase(): DatabaseSchema {
-  // Default admin: admin@ucr.ac.lk / admin123
+  const username = process.env.ADMIN_USERNAME || 'ucrtvrepb11';
+  const email = process.env.ADMIN_EMAIL || 'hesansamudika20@gmail.com';
+  const password = process.env.ADMIN_PASSWORD || 'ucrtv@2026';
   const salt = bcrypt.genSaltSync(10);
-  const passwordHash = bcrypt.hashSync('admin123', salt);
+  const passwordHash = bcrypt.hashSync(password, salt);
 
   return {
     students: generateInitialStudents(),
@@ -410,15 +606,18 @@ export function getInitialDatabase(): DatabaseSchema {
     gallery: INITIAL_GALLERY,
     events: INITIAL_EVENTS,
     lecturers: INITIAL_LECTURERS,
+    timetables: INITIAL_TIMETABLES,
+    timetableOverrides: [],
     admins: [
       {
         id: 'admin-1',
-        username: 'admin',
-        email: 'admin@ucr.ac.lk',
+        username,
+        email,
         passwordHash,
-        name: 'Head of Division',
+        name: 'Television Studies Administrator',
         role: 'superadmin',
       },
     ],
   };
 }
+

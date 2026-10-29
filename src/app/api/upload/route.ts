@@ -20,10 +20,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate MIME type
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
     if (!validTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Only JPEG, PNG, WEBP, and GIF images are allowed.' },
+        { error: 'Invalid file type. Only JPEG, PNG, WEBP, GIF images and PDF documents are allowed.' },
         { status: 400 }
       );
     }
